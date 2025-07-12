@@ -130,18 +130,17 @@ def get_trading_balance(ccy: str = "USDT") -> str:
     path   = "/api/v5/account/balance"
     params = {"ccy": ccy}
 
-    resp  = api_get(path, params)      # consider switching to GET – see below
-    print(resp)  # 调试输出
+    resp  = api_get(path, params)
     data  = resp.get("data", [])
 
-    if not data:                        # nothing came back
+    if not data:
         return "0"
 
     for d in data[0].get("details", []):
         if d.get("ccy") == ccy:
             return d.get("cashBal", "0")
 
-    return "0"                          # currency not present
+    return "0"
 
 def main():
     ccy, amt = "USDT", os.getenv("AMOUNT", "3")  # 去环境变量获取金额，默认为 3 USDT 
