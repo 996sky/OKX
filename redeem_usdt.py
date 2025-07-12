@@ -8,10 +8,7 @@ import base64
 import hashlib
 import requests
 import datetime
-
 import os # 读取环境变量
-
-
 
 # 需要设置以下环境变量。也可以写在默认值中，如 TG_USER_ID = os.getenv("TG_USER_ID", "123456789")，或直接赋值。但为了安全起见，建议在环境变量中设置。
 
@@ -52,9 +49,6 @@ def sign(method: str, path: str, body: str, timestamp: str) -> str:
 
 def api_post(path: str, params: dict) -> dict:
     """通用的 OKX REST API POST 请求。"""
-    
-    
-    
     ts = get_timestamp()
     body = json.dumps(params)
     sig = sign("POST", path, body, ts)
