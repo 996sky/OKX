@@ -11,7 +11,6 @@ import datetime
 import os # 读取环境变量
 
 # 需要设置以下环境变量。也可以写在默认值中，如 TG_USER_ID = os.getenv("TG_USER_ID", "123456789")，或直接赋值。但为了安全起见，建议在环境变量中设置。
-
 USE_TG = os.getenv("USE_TG", "").lower() in ("1", "true", "yes")  # 若需 Telegram 推送则设为 True
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN") # Telegram Bot Token
 TG_USER_ID = os.getenv("TG_USER_ID") # Telegram 用户 ID
