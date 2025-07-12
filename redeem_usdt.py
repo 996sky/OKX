@@ -52,6 +52,9 @@ def sign(method: str, path: str, body: str, timestamp: str) -> str:
 
 def api_post(path: str, params: dict) -> dict:
     """通用的 OKX REST API POST 请求。"""
+    
+    
+    
     ts = get_timestamp()
     body = json.dumps(params)
     sig = sign("POST", path, body, ts)
@@ -66,8 +69,26 @@ def api_post(path: str, params: dict) -> dict:
     r = requests.post(url, headers=headers, data=body)
     return r.json()
 
+def api_get(path: str, params: dict = None) -> dict:
+    """通用的 OKX REST API GET 请求。"""
+    if params:
+        path += "?" + "&".join(f"{k}={v}" for k, v in params.items())
+    ts = get_timestamp()
+    body = ""
+    sig = sign("GET", path, body, ts)
+    headers = {
+        "OK-ACCESS-KEY": API_KEY,
+        "OK-ACCESS-SIGN": sig,
+        "OK-ACCESS-TIMESTAMP": ts,
+        "OK-ACCESS-PASSPHRASE": PASSPHRASE,
+        "Content-Type": "application/json"
+    }
+    url = BASE_URL + path
+    r = requests.get(url, headers=headers)
+    return r.json()     
+
 # ——— 业务逻辑 ———
-def transfer_funds(ccy: str, amt: str) -> dict:
+def transfer_to_trading(ccy: str, amt: str) -> dict:
     """
     从资金账户转账到现货账户。
     OKX 接口: POST /api/v5/asset/transfer
@@ -82,6 +103,21 @@ def transfer_funds(ccy: str, amt: str) -> dict:
     }
     return api_post(path, params)
 
+def transfer_to_funding(ccy: str, amt: str) -> dict:
+    """
+    从现货账户转账到资金账户。
+    OKX 接口: POST /api/v5/asset/transfer
+    from: "6" (现货账户), to: "18" (资金账户)
+    """
+    path = "/api/v5/asset/transfer"
+    params = {
+        "ccy": ccy,
+        "amt": amt,
+        "from": "18",
+        "to": "6"
+    }
+    return api_post(path, params)
+
 def redeem_savings(ccy: str, amt: str) -> dict:
     """
     赎回活动中的存币。
@@ -91,6 +127,27 @@ def redeem_savings(ccy: str, amt: str) -> dict:
     path = "/api/v5/finance/savings/purchase-redempt"
     params = {"ccy": ccy, "amt": amt, "side": "redempt"}
     return api_post(path, params)
+
+def get_trading_balance(ccy: str = "USDT") -> str:
+    """
+    获取交易账户的可用余额 (cashBal)
+    OKX 接口: GET /api/v5/account/balance
+    """
+    path   = "/api/v5/account/balance"
+    params = {"ccy": ccy}
+
+    resp  = api_get(path, params)      # consider switching to GET – see below
+    print(resp)  # 调试输出
+    data  = resp.get("data", [])
+
+    if not data:                        # nothing came back
+        return "0"
+
+    for d in data[0].get("details", []):
+        if d.get("ccy") == ccy:
+            return d.get("cashBal", "0")
+
+    return "0"                          # currency not present
 
 def main():
     ccy, amt = "USDT", os.getenv("AMOUNT", "3")  # 去环境变量获取金额，默认为 3 USDT 
@@ -104,9 +161,23 @@ def main():
     time.sleep(1)
 
     # 2) 转账: 资金账户 → 交易账户
-    t_result = transfer_funds(ccy, amt)
+    t_result = transfer_to_trading(ccy, amt)
     print("转账结果:", t_result)
     telegram(f"将 {amt} {ccy} 从资金账户转至交易账户: \n{t_result}")
+
+    # 3) 获取BTC交易账户余额, 并转账至资金账户
+    btc_balance = get_trading_balance("BTC")
+    print(f"BTC 交易账户余额: {btc_balance}")
+    telegram(f"BTC 交易账户余额: \n{btc_balance}")
+    if float(btc_balance) > 0:
+        transfer_result = transfer_to_funding("BTC", btc_balance)
+        print("转账结果:", transfer_result)
+        telegram(f"将 {btc_balance} BTC 从交易账户转至资金账户: \n{transfer_result}")
+    else:
+        print("BTC 交易账户余额为 0, 无需转账。")
+        telegram("BTC 交易账户余额为 0, 无需转账。")
+
+
 
 if __name__ == "__main__":
     main()
